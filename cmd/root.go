@@ -6,7 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/toudi/kwity/config"
+	appPkg "github.com/toudi/kwity/internal/app"
+	configPkg "github.com/toudi/kwity/internal/config"
 )
 
 var rootCmd = &cobra.Command{
@@ -16,6 +17,9 @@ var rootCmd = &cobra.Command{
 		// Do Stuff Here
 	},
 }
+
+var app *appPkg.App
+var config *configPkg.ConfigType
 
 func Execute() {
 	var err error
@@ -27,8 +31,13 @@ func Execute() {
 		os.Exit(1)
 	}
 
-	if err = viper.Unmarshal(&config.Config); err != nil {
+	if err = viper.Unmarshal(&config); err != nil {
 		fmt.Printf("could not unmarshall config: %v\n", err)
+		os.Exit(1)
+	}
+
+	if app, err = appPkg.Init(config); err != nil {
+		fmt.Printf("error initializing app: %v", err)
 		os.Exit(1)
 	}
 
@@ -36,4 +45,6 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	app.Close()
 }
