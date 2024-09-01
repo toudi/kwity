@@ -33,7 +33,8 @@ func ParsePrice(input string) (PriceNormalized, error) {
 // https://stackoverflow.com/questions/13020308/how-to-fmt-printf-an-integer-with-thousands-comma
 func (p PriceNormalized) Format(thousandSeparator string) string {
 	quantizer := int(math.Pow10(p.Multiplier))
-	remainder := p.Price % quantizer
+	remainder := (p.Price % quantizer)
+
 	output := strconv.Itoa(p.Price / quantizer)
 	startOffset := 3
 	if p.Price < 0 {
@@ -44,7 +45,11 @@ func (p PriceNormalized) Format(thousandSeparator string) string {
 		output = output[:outputIndex] + thousandSeparator + output[outputIndex:]
 	}
 	if remainder > 0 {
-		return fmt.Sprintf("%s.%02d", output, remainder)
+		if p.Multiplier == 1 && remainder < 10 {
+			remainder *= 10
+		}
+		paddedRemainderFmt := fmt.Sprintf("%%0%dd", p.Multiplier)
+		return fmt.Sprintf("%s.%s", output, fmt.Sprintf(paddedRemainderFmt, remainder))
 	}
 	return output
 }

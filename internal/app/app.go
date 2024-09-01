@@ -14,8 +14,9 @@ import (
 )
 
 type App struct {
-	config *config.ConfigType
-	db     db.Database
+	config   *config.ConfigType
+	db       db.Database
+	rendered bool
 }
 
 var ErrUnknownDatabaseType = errors.New("unknown database type")

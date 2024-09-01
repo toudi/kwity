@@ -3,14 +3,14 @@ package config
 const EnginePuppeteer string = "puppeteer"
 
 type PuppeteerConfig struct {
-	Command []string `mapstructure:"command"`
+	Command []string `yaml:"command"`
 }
 
 type GotenbergConfig struct {
-	Host string `mapstructure:"host"`
+	Host string `yaml:"host"`
 }
 
 type Renderer struct {
-	Puppeteer *PuppeteerConfig `mapstructure:"puppeteer"`
-	Gotenberg *GotenbergConfig `mapstructure:"gotenberg"`
+	Puppeteer *PuppeteerConfig `yaml:"puppeteer"`
+	Gotenberg *GotenbergConfig `yaml:"gotenberg"`
 }

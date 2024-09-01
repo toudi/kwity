@@ -1,9 +1,9 @@
 package config
 
 type FileDBConfig struct {
-	Root string `mapstructure:"path"`
+	Root string `yaml:"path"`
 }
 
 type DatabaseConfig struct {
-	FileDB *FileDBConfig `mapstructure:"fs"`
+	FileDB *FileDBConfig `yaml:"fs"`
 }

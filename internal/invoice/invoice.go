@@ -8,6 +8,7 @@ import (
 
 type Invoice struct {
 	Id                string                            `yaml:"id"`
+	DraftId           string                            `yaml:"draft-id,omitempty"`
 	RecipientId       string                            `yaml:"recipient-id"`
 	BuyerId           string                            `yaml:"buyer-id,omitempty"`
 	Recipient         *common.Entity                    `yaml:"-"`
@@ -17,29 +18,9 @@ type Invoice struct {
 	SaleDate          time.Time                         `yaml:"sale-date"`
 	Number            string                            `yaml:"number"`
 	Items             []*Item                           `yaml:"items"`
+	SourceItems       []*Item                           `yaml:"-"`
 	TotalAmount       *common.Amount                    `yaml:"-"`
 	_aggregatesPerVAT map[common.VatRate]*common.Amount `yaml:"-"`
-}
-
-func (i *Invoice) targetPDFName() string {
-	// filenameTemplate := i.Contractor.PDFTemplateName
-
-	// replacer := strings.NewReplacer(
-	// 	"{{ year }}", fmt.Sprint(i.Issued.Year()),
-	// 	"{{ month }}", fmt.Sprintf("%02d", i.Issued.Month()),
-	// )
-
-	// fileNameBase := replacer.Replace(filenameTemplate)
-
-	// replacer = strings.NewReplacer(
-	// 	"{{ year }}", fmt.Sprint(i.Issued.Year()),
-	// 	"{{ month }}", fmt.Sprintf("%02d", i.Issued.Month()),
-	// 	"{{ invoice }}", fileNameBase,
-	// )
-
-	return ""
-
-	// return replacer.Replace(config.Config.Output)
 }
 
 func (i *Invoice) SetSaleDateToEndOfMonth() {

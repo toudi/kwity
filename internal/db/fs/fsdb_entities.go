@@ -1,54 +1,46 @@
 package fs
 
 import (
-	"errors"
-	"path"
-
-	"github.com/jaevor/go-nanoid"
 	"github.com/toudi/kwity/internal/common"
 	"github.com/toudi/kwity/internal/db"
+	"github.com/toudi/yti"
 )
 
+const entitiesDbFilename = "entities.yaml"
+const entityIndexId = "id"
+const entityIndexNip = "nip"
+
 type EntitiesDB struct {
-	itemsView *FSDBView[common.Entity]
+	*yti.Table[common.Entity]
 }
 
 func (f *FSDb) Entities() db.EntitiesInterface {
-	dbview, err := FSDBView_init[common.Entity](
-		path.Join(f.config.Root, "entities.yaml"),
-		&FSDBViewParams[common.Entity]{
-			indexer: func(document common.Entity) []DocIndex {
-				return []DocIndex{
-					{Name: "id", Value: document.Id},
-				}
+	return getTable(f, entitiesDbFilename, func(filename string) (*EntitiesDB, error) {
+		instance, err := yti.OpenFile[common.Entity](filename, &yti.TableOptions[common.Entity]{
+			Indices: map[string]yti.Indexer[common.Entity]{
+				entityIndexId: func(item common.Entity) interface{} {
+					return item.Id
+				},
+				entityIndexNip: func(item common.Entity) interface{} {
+					return item.NIP
+				},
 			},
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
-	instance := &EntitiesDB{
-		itemsView: dbview,
-	}
-	f.OnClose(instance.itemsView.save)
-	return instance
+		})
+
+		return &EntitiesDB{
+			Table: instance,
+		}, err
+	})
 }
 
 func (e *EntitiesDB) UpdateOrCreate(entity common.Entity) error {
 	if entity.Id == "" {
-		generator, err := nanoid.Standard(4)
-		if err != nil {
-			return errors.Join(ErrInstantiatingIDGenerator, err)
-		}
-		var contains = true
-		for contains {
-			entity.Id = generator()
-			contains, err = e.itemsView.IndexContainsValue("id", entity.Id)
-			if err != nil {
-				return err
-			}
-		}
+		entity.Id = entity.Name
 	}
 
-	return e.itemsView.UpsertDocument(DocIndex{Name: "id", Value: entity.Id}, entity)
+	return e.UpdateOrCreateByIndexValue(entityIndexNip, entity.NIP, entity)
+}
+
+func (e *EntitiesDB) GetByNIP(nip string) (common.Entity, error) {
+	return e.GetByIndex(entityIndexNip, nip)
 }

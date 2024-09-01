@@ -3,78 +3,91 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/jaevor/go-nanoid"
 	"github.com/toudi/kwity/internal/common"
 	"github.com/toudi/kwity/internal/db"
 	"github.com/toudi/kwity/internal/invoice"
+	"github.com/toudi/yti"
 )
 
 type InvoicesDB struct {
-	root string
-	db   *FSDb
+	root         string
+	db           *FSDb
+	uidGenerator func() string
 }
 
 var (
 	ErrOpeningInvoices          = errors.New("unable to open invoices db")
 	ErrInstantiatingIDGenerator = errors.New("unable to instantiate nanoid generator")
+	ErrDraftDoesNotExist        = errors.New("draft with the specified ID does not exist")
+	ErrDraftAlreadyCommitted    = errors.New("draft with the specified ID was already committed")
+	ErrUnknownEntity            = errors.New("unknown entity")
 )
 
+const InvoiceIndexId = "id"
+
 func (f *FSDb) Invoices() db.InvoicesInterface {
-	return &InvoicesDB{root: f.config.Root, db: f}
+	generator, err := nanoid.Standard(4)
+	if err != nil {
+		panic("unable to instantiate generator")
+	}
+	return &InvoicesDB{root: f.config.Root, db: f, uidGenerator: generator}
 }
 
-func invoiceIndexer(i *invoice.Invoice) []DocIndex {
-	return []DocIndex{
-		{Name: "id", Value: i.Id},
+func (idb *InvoicesDB) loadVatRates(invoice *invoice.Invoice) {
+	for _, item := range invoice.Items {
+		item.VatRate, _ = idb.db.VATRates().GetByID(item.VatRateId)
 	}
 }
 
-func invoiceSaveHook(i *invoice.Invoice) {
-	for _, item := range i.Items {
-		item.VatRateId = item.VatRate.Id
-	}
+type InvoicesTable struct {
+	*yti.Table[*invoice.Invoice]
 }
 
-func invoiceLoadHookFactory(idb *InvoicesDB) LoadHookFunc[*invoice.Invoice] {
-	return func(i *invoice.Invoice) {
-		for _, item := range i.Items {
-			item.VatRate, _ = idb.db.VATRates().GetByID(item.VatRateId)
-		}
-	}
+func (idb *InvoicesDB) getTable(date time.Time) *InvoicesTable {
+	dbPath := fmt.Sprintf("invoices/%d.yaml", date.Year())
+
+	return getTable(idb.db, dbPath, func(filename string) (*InvoicesTable, error) {
+		instance, err := yti.OpenFile[*invoice.Invoice](
+			filename,
+			&yti.TableOptions[*invoice.Invoice]{
+				Indices: map[string]yti.Indexer[*invoice.Invoice]{
+					InvoiceIndexId: func(item *invoice.Invoice) interface{} {
+						return item.Id
+					},
+				},
+			},
+		)
+
+		return &InvoicesTable{
+			Table: instance,
+		}, err
+	})
 }
 
 func (idb *InvoicesDB) Save(i *invoice.Invoice) error {
 	// determine path based on the sales date
-	dbPath := path.Join(idb.root, fmt.Sprintf("%d/%d.yaml", i.SaleDate.Year(), i.SaleDate.Year()))
-	view, err := FSDBView_init[*invoice.Invoice](dbPath, &FSDBViewParams[*invoice.Invoice]{
-		indexer:  invoiceIndexer,
-		saveHook: invoiceSaveHook,
-		loadHook: invoiceLoadHookFactory(idb),
-	})
-	if err != nil {
-		return errors.Join(ErrOpeningInvoices, err)
-	}
+	table := idb.getTable(i.SaleDate)
+
 	if i.Id == "" {
-		generator, err := nanoid.Standard(4)
+		id, err := table.EnsureIndexDoesNotContain(
+			InvoiceIndexId,
+			func() interface{} { return idb.uidGenerator() },
+			100,
+		)
 		if err != nil {
-			return errors.Join(ErrInstantiatingIDGenerator, err)
+			return err
 		}
-		var contains = true
-		for contains {
-			i.Id = generator()
-			contains, err = view.IndexContainsValue("id", i.Id)
-			if err != nil {
-				return err
-			}
-		}
+		i.Id = id.(string)
 	}
-	if err = view.UpsertDocument(DocIndex{Name: "id", Value: i.Id}, i); err != nil {
-		return err
+
+	for _, item := range i.Items {
+		item.VatRateId = item.VatRate.Id
 	}
-	return view.save()
+
+	return table.UpdateOrCreateByIndexValue(InvoiceIndexId, i.Id, i)
 }
 
 func (idb *InvoicesDB) FilterByRecipient(
@@ -82,28 +95,22 @@ func (idb *InvoicesDB) FilterByRecipient(
 	issued time.Time,
 	id string,
 ) ([]*invoice.Invoice, error) {
-	dbPath := path.Join(idb.root, fmt.Sprintf("%d/%d.yaml", issued.Year(), issued.Year()))
-	view, err := FSDBView_init[*invoice.Invoice](dbPath, &FSDBViewParams[*invoice.Invoice]{
-		indexer:  invoiceIndexer,
-		loadHook: invoiceLoadHookFactory(idb),
-	})
-	if err != nil {
-		return nil, ErrOpeningInvoices
-	}
-	var dest []*invoice.Invoice = make([]*invoice.Invoice, 0)
+	table := idb.getTable(issued)
 
-	view.ForEach(func(document *invoice.Invoice) {
-		var match = document.RecipientId == recipientID
+	var dest []*invoice.Invoice
 
-		if id != "" && document.Id != id {
+	table.ForEach(func(item *invoice.Invoice) bool {
+		var match = item.RecipientId == recipientID
+
+		if id != "" && item.Id != id {
 			match = false
 		}
 
 		if match {
-			view.params.loadHook(document)
-			dest = append(dest, document)
+			idb.loadVatRates(item)
+			dest = append(dest, item)
 		}
-
+		return false
 	})
 
 	return dest, nil
@@ -115,23 +122,88 @@ func (idb *InvoicesDB) GetNextSequenceNumber(
 ) (common.SequenceNumber, error) {
 	var sn = common.SequenceNumber{}
 
-	dbPath := path.Join(idb.root, fmt.Sprintf("%d/%d.yaml", saleDate.Year(), saleDate.Year()))
-	view, err := FSDBView_init[*invoice.Invoice](dbPath, nil)
-	if err != nil {
-		return sn, err
-	}
-
-	view.ForEach(func(invoice *invoice.Invoice) {
+	table := idb.getTable(saleDate)
+	table.ForEach(func(invoice *invoice.Invoice) bool {
 		if invoice.Number != "" && invoice.Draft == draft {
 			sn.Year += 1
 			if invoice.SaleDate.Month() == saleDate.Month() {
 				sn.Month += 1
 			}
 		}
+
+		return false
 	})
 
 	sn.Year += 1
 	sn.Month += 1
 
 	return sn, nil
+}
+
+func (idb *InvoicesDB) GenerateInvoiceFromDraft(
+	id string,
+	issueDate time.Time,
+) (*invoice.Invoice, error) {
+	// first, narrow down the search to current year
+	if issueDate.IsZero() {
+		issueDate = time.Now().Local()
+	}
+
+	table := idb.getTable(issueDate)
+
+	var draft *invoice.Invoice
+	var committed *invoice.Invoice
+
+	table.ForEach(func(i *invoice.Invoice) bool {
+		if i.Id == id {
+			draft = i
+		}
+		if i.DraftId == id {
+			committed = i
+		}
+		return draft != nil && committed != nil
+	})
+
+	// does the draft even exist ?
+	if draft == nil || (draft != nil && !draft.Draft) {
+		return nil, ErrDraftDoesNotExist
+	}
+
+	// seems that it does. Was it already committed?
+	if committed != nil {
+		return nil, ErrDraftAlreadyCommitted
+	}
+
+	idb.loadVatRates(draft)
+
+	// seems this is our lucky day.
+	committed = &invoice.Invoice{
+		DraftId:     id,
+		IssueDate:   issueDate,
+		SaleDate:    issueDate,
+		Draft:       false,
+		RecipientId: draft.RecipientId,
+		BuyerId:     draft.BuyerId,
+	}
+
+	if committed.RecipientId != "" {
+		if recipient, err := idb.db.Entities().GetByNIP(committed.RecipientId); err != nil {
+			return nil, ErrUnknownEntity
+		} else {
+			committed.Recipient = &recipient
+		}
+	}
+	if committed.BuyerId != "" {
+		if buyer, err := idb.db.Entities().GetByNIP(committed.BuyerId); err != nil {
+			return nil, ErrUnknownEntity
+		} else {
+			committed.Buyer = &buyer
+		}
+	}
+
+	for _, item := range draft.Items {
+		committed.AddItem(item)
+	}
+
+	return committed, nil
 }

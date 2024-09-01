@@ -47,9 +47,9 @@ func (a *Amount) RoundUp(decimalPlaces int) {
 
 	if a.Multiplier > decimalPlaces {
 		quantizer := math.Pow10(a.Multiplier - decimalPlaces)
-		a.Net = int(math.Ceil(float64(a.Net) / quantizer))
-		a.Gross = int(math.Ceil(float64(a.Gross) / quantizer))
-		a.Vat = int(math.Ceil(float64(a.Vat) / quantizer))
+		a.Net = int(math.Round(float64(a.Net) / quantizer))
+		a.Gross = int(math.Round(float64(a.Gross) / quantizer))
+		a.Vat = int(math.Round(float64(a.Vat) / quantizer))
 	} else if a.Multiplier < decimalPlaces {
 		quantizer := int(math.Pow10(decimalPlaces - a.Multiplier))
 		a.Net *= quantizer

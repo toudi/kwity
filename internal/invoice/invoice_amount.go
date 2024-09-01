@@ -60,14 +60,14 @@ func (i *Invoice) GetTotalsPerVATRateArray() []totalPerVATRate {
 		left := totals[i]
 		right := totals[j]
 
-		if left.VatRate.Rate == right.VatRate.Rate {
+		if left.VatRate.Id == right.VatRate.Id {
 			return strings.Compare(
 				left.VatRate.GetDescription(),
 				right.VatRate.GetDescription(),
 			) == -1
 		}
 
-		return left.VatRate.Rate < right.VatRate.Rate
+		return left.VatRate.GetRate() < right.VatRate.GetRate()
 	})
 
 	return totals

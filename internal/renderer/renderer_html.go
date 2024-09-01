@@ -2,8 +2,8 @@ package renderer
 
 import (
 	"errors"
-	"fmt"
 
+	"github.com/phuslu/log"
 	"github.com/toudi/kwity/internal/invoice"
 )
 
@@ -16,6 +16,6 @@ func (h HTMLRenderer) Render(templateFile string, i *invoice.Invoice, pdfFileNam
 		return errors.Join(ErrRendering, err)
 	}
 	// now we can pass this to the actual renderer.
-	fmt.Printf("rendering saved as %s\n", prerender)
+	log.Debug().Str("path", prerender).Msg("prerender saved")
 	return nil
 }

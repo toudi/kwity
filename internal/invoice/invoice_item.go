@@ -1,6 +1,8 @@
 package invoice
 
-import "github.com/toudi/kwity/internal/common"
+import (
+	"github.com/toudi/kwity/internal/common"
+)
 
 type Item struct {
 	Name      string                 `yaml:"name"`

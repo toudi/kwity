@@ -48,10 +48,12 @@ func (t *Template) WorkdaysWithRates(
 			selectedRate.EndTime = endDate
 		}
 		// calculate number of workdays
-		numWorkDays = workdays.CalculateWorkingDays(
+		numWorkDays, _ = workdays.CalculateWorkingDays(
 			selectedRate.StartTime,
 			selectedRate.EndTime,
-		) + 1
+			nil,
+		)
+		numWorkDays += 1
 		// and move on to the end of applicable rate. it could be that this would be next month
 		// altogether therefore the forloop would stop.
 		startDate = selectedRate.EndTime.AddDate(0, 0, 1)

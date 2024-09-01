@@ -1,5 +1,5 @@
 package config
 
 type Issuer struct {
-	Name string `mapstructure:"name"`
+	Name string `yaml:"name"`
 }

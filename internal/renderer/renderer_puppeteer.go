@@ -2,10 +2,10 @@ package renderer
 
 import (
 	"errors"
-	"fmt"
 	"os/exec"
 	"strings"
 
+	"github.com/phuslu/log"
 	"github.com/toudi/kwity/internal/config"
 	"github.com/toudi/kwity/internal/invoice"
 )
@@ -28,15 +28,15 @@ func (p PuppeteerRenderer) Render(
 	commandArgs := p.config.Command[1:]
 	commandArgs = append(commandArgs, prerender, pdfFileName)
 
-	fmt.Printf("executing %v %v\n", command, commandArgs)
+	log.Trace().Msgf("executing %s %v", command, commandArgs)
 
 	cmd := exec.Command(command, commandArgs...)
 	b := new(strings.Builder)
 	cmd.Stderr = b
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error from stderr: %v\n", b)
-		return fmt.Errorf("error during conversion to PDF: %v", err)
+		log.Trace().Any("error from stderr", b).Msg("")
+		return errors.Join(errors.New("error during conversion to PDF"), err)
 	}
 
 	return nil

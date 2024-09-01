@@ -7,9 +7,10 @@ import (
 )
 
 type InvoiceMetadata struct {
-	SEI          bool   `yaml:"sei"`
-	TemplateFile string `yaml:"template"`
-	PDFName      string `yaml:"pdf-name"`
+	SEI           bool          `yaml:"sei"`
+	TemplateFile  string        `yaml:"template"`
+	PDFName       string        `yaml:"pdf-name"`
+	PipelineSteps []interface{} `yaml:"pipeline"`
 }
 
 var (
