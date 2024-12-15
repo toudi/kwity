@@ -8,25 +8,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var bankHolidaysDBInstance *BankHolidaysDB
+var holidaysDBInstance *HolidaysDB
 
-type BankHolidaysDB struct {
-	Holidays []string `yaml:"bank-holidays"`
+type HolidaysDB struct {
+	BankHolidays []string `yaml:"bank-holidays"`
+	PtoRanges    []string `yaml:"pto"`
 }
 
-func (b *BankHolidaysDB) GetBankHolidays() []string {
-	return b.Holidays
+func (b *HolidaysDB) GetBankHolidays() []string {
+	return b.BankHolidays
 }
 
-func (f *FSDb) BankHolidays() db.BankHolidaysInterface {
-	if bankHolidaysDBInstance == nil {
-		bankHolidaysDBInstance = &BankHolidaysDB{}
+func (b *HolidaysDB) GetPTORanges() []string {
+	return b.PtoRanges
+}
 
-		bankHolidaysFile, err := os.Open(filepath.Join(f.config.Root, "bank-holidays.yaml"))
+func (f *FSDb) Holidays() db.HolidaysInterface {
+	if holidaysDBInstance == nil {
+		holidaysDBInstance = &HolidaysDB{}
+
+		holidaysFile, err := os.Open(filepath.Join(f.config.Root, "holidays.yaml"))
 		if err == nil {
-			_ = yaml.NewDecoder(bankHolidaysFile).Decode(&bankHolidaysDBInstance)
+			_ = yaml.NewDecoder(holidaysFile).Decode(&holidaysDBInstance)
 		}
 	}
 
-	return bankHolidaysDBInstance
+	return holidaysDBInstance
 }

@@ -28,6 +28,8 @@ func (i *IssueCommand) Run(ctx *Context) error {
 
 	var err error
 
+	i.IssueDate = time.Now().Local()
+
 	if i.Issued != "" {
 		// try to parse the date
 		if i.IssueDate, err = time.ParseInLocation("2006-01-02", i.Issued, time.Local); err != nil {

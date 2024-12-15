@@ -180,7 +180,7 @@ func (idb *InvoicesDB) GenerateInvoiceFromDraft(
 	committed = &invoice.Invoice{
 		DraftId:     id,
 		IssueDate:   issueDate,
-		SaleDate:    issueDate,
+		SaleDate:    draft.SaleDate,
 		Draft:       false,
 		RecipientId: draft.RecipientId,
 		BuyerId:     draft.BuyerId,
@@ -206,4 +206,20 @@ func (idb *InvoicesDB) GenerateInvoiceFromDraft(
 	}
 
 	return committed, nil
+}
+
+func (idb *InvoicesDB) GetByID(id string) (*invoice.Invoice, error) {
+	now := time.Now().Local()
+
+	table := idb.getTable(now)
+
+	invoice, err := table.GetByIndex(InvoiceIndexId, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// found the invoice. let's just read it back and recalculate total amounts
+	invoice.CalculateTotalAmount()
+
+	return invoice, nil
 }

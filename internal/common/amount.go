@@ -40,6 +40,29 @@ func CalculateAmount(quantity PriceNormalized, unitPrice UnitPrice, vatRate VatR
 	}
 }
 
+func CalculateWithExchangeRate(
+	invoiceGross PriceNormalized,
+	exchangeRate PriceNormalized,
+	decimalPlaces int,
+) PriceNormalized {
+	multiplier := invoiceGross.Multiplier + exchangeRate.Multiplier
+	amount := int(invoiceGross.Price * exchangeRate.Price)
+
+	calculatedAmount := &Amount{
+		Net:        amount,
+		Gross:      amount,
+		Vat:        0,
+		Multiplier: multiplier,
+	}
+
+	calculatedAmount.RoundUp(decimalPlaces)
+
+	return PriceNormalized{
+		Price:      calculatedAmount.Gross,
+		Multiplier: calculatedAmount.Multiplier,
+	}
+}
+
 func (a *Amount) RoundUp(decimalPlaces int) {
 	if decimalPlaces == a.Multiplier {
 		return

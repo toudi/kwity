@@ -77,6 +77,7 @@ func PrerenderInvoice(templateFile string, i *invoice.Invoice) (string, error) {
 				},
 			},
 			"totalPerVATRate": i.GetTotalsPerVATRateArray(),
+			"metadata":        i.Metadata,
 		},
 	}, dest)
 
@@ -87,10 +88,19 @@ func renderPriceNormalized(
 	value *pongo2.Value,
 	param *pongo2.Value,
 ) (*pongo2.Value, *pongo2.Error) {
-	price, err := value.Interface().(common.PriceNormalized)
-	if err {
-		_ = value.Interface().(common.PriceNormalized)
-		// return nil, &pongo2.Error{OrigError: fmt.Errorf("invalid input: %v", value.Interface())}
+	price, ok := value.Interface().(common.PriceNormalized)
+	if !ok {
+		// check if it's a map that contains the values so we can convert it back
+		// as common.PriceNormalized
+		if tmpMap, ok := value.Interface().(map[string]interface{}); ok {
+			price = common.PriceNormalized{}
+			if priceAmt, ok := tmpMap["price"].(int); ok {
+				price.Price = priceAmt
+			}
+			if multiplier, ok := tmpMap["multiplier"].(int); ok {
+				price.Multiplier = multiplier
+			}
+		}
 	}
 	separator := param.String()
 	return pongo2.AsValue(price.Format(separator)), nil

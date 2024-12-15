@@ -14,7 +14,8 @@ var options struct {
 var CLI struct {
 	Verbosity int `type:"counter" short:"v" help:"Set verbosity level; Use -v or -vv"`
 
-	Issue commands.IssueCommand `cmd:"" help:"issue invoice"`
+	Issue  commands.IssueCommand  `cmd:"" help:"issue invoice"`
+	Render commands.RenderCommand `cmd:"" help:"render existing invoice"`
 }
 
 func main() {

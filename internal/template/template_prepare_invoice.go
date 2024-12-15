@@ -2,6 +2,8 @@ package template
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/samber/lo"
@@ -25,18 +27,23 @@ type PrepareInvoiceOptions struct {
 func (t *Template) PrepareInvoice(
 	_db db.Database,
 	params PrepareInvoiceOptions,
+	draft *invoice.Invoice,
 ) (*invoice.Invoice, error) {
 	if t.Recipient.NIP == "" {
 		return nil, ErrContractorIdMissing
 	}
-	_invoice := &invoice.Invoice{
-		Recipient:   t.Recipient,
-		Buyer:       t.Buyer,
-		RecipientId: t.Recipient.NIP,
-		IssueDate:   time.Now(),
-		SaleDate:    time.Now(),
-		Items:       make([]*invoice.Item, 0, len(t.Items)),
+	var _invoice *invoice.Invoice = draft
+	if _invoice == nil {
+		_invoice = &invoice.Invoice{
+			Recipient:   t.Recipient,
+			Buyer:       t.Buyer,
+			RecipientId: t.Recipient.NIP,
+			IssueDate:   time.Now(),
+			SaleDate:    time.Now(),
+			Items:       make([]*invoice.Item, 0, len(t.Items)),
+		}
 	}
+	_invoice.Items = make([]*invoice.Item, 0, len(t.Items))
 
 	if !params.IssueDate.IsZero() {
 		_invoice.IssueDate = params.IssueDate
@@ -50,13 +57,21 @@ func (t *Template) PrepareInvoice(
 	if t.SaleDate == LastDayOfMonth {
 		// take the issue date and set the sale date to last day of it's month.
 		_invoice.SetSaleDateToEndOfMonth()
+	} else {
+		// let's check if the sale date is some number in range of 1 .. 31
+		day, err := strconv.Atoi(t.SaleDate)
+		fmt.Printf("parsed day: %d, err=%v\n", day, err)
+		if err == nil && day >= 1 && day <= 31 {
+			fmt.Printf("set last day of month")
+			_invoice.SetSaleDateToDayOfMonth(day)
+		}
 	}
 
 	workingDays, bankHolidays := workdays.CalculateWorkingDays(
 		_invoice.SaleDate.AddDate(0, 0, -_invoice.SaleDate.Day()+1), // beginning of the month
 		_invoice.SaleDate,
 		lo.SliceToMap(
-			_db.BankHolidays().GetBankHolidays(),
+			_db.Holidays().GetBankHolidays(),
 			func(holiday string) (string, bool) { return holiday, true },
 		),
 	)

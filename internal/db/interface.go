@@ -16,6 +16,7 @@ type InvoicesInterface interface {
 	) ([]*invoice.Invoice, error)
 	GetNextSequenceNumber(saleDate time.Time, draft bool) (common.SequenceNumber, error)
 	GenerateInvoiceFromDraft(id string, issueDate time.Time) (*invoice.Invoice, error)
+	GetByID(id string) (*invoice.Invoice, error)
 }
 
 type VATRatesInterface interface {
@@ -28,14 +29,15 @@ type EntitiesInterface interface {
 	GetByNIP(id string) (common.Entity, error)
 }
 
-type BankHolidaysInterface interface {
+type HolidaysInterface interface {
 	GetBankHolidays() []string
+	GetPTORanges() []string
 }
 
 type Database interface {
 	Invoices() InvoicesInterface
 	VATRates() VATRatesInterface
 	Entities() EntitiesInterface
-	BankHolidays() BankHolidaysInterface
+	Holidays() HolidaysInterface
 	Close()
 }

@@ -21,8 +21,20 @@ type Invoice struct {
 	SourceItems       []*Item                           `yaml:"-"`
 	TotalAmount       *common.Amount                    `yaml:"-"`
 	_aggregatesPerVAT map[common.VatRate]*common.Amount `yaml:"-"`
+	Metadata          map[string]interface{}            `yaml:"metadata,omitempty"`
 }
 
 func (i *Invoice) SetSaleDateToEndOfMonth() {
 	i.SaleDate = i.IssueDate.AddDate(0, 1, -i.IssueDate.Day())
+}
+
+func (i *Invoice) SetSaleDateToDayOfMonth(day int) {
+	i.SaleDate = i.IssueDate.AddDate(0, 0, day-i.IssueDate.Day())
+}
+
+func (i *Invoice) SetMetadata(key string, value interface{}) {
+	if i.Metadata == nil {
+		i.Metadata = make(map[string]interface{})
+	}
+	i.Metadata[key] = value
 }

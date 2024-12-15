@@ -29,6 +29,7 @@ var (
 	ErrCannotConvertADraft = errors.New(
 		"either the specified ID is not a draft, or it does not exist or it already has a matching invoice",
 	)
+	ErrCannotAmendADraft = errors.New("cannot ammend the draft")
 )
 
 type ErrSepecifyInvoiceId struct {
@@ -74,6 +75,12 @@ func (app *App) IssueInvoice(params IssueParams) error {
 				}
 
 				inv = invoices[0]
+				inv, err = template.PrepareInvoice(app.db, tmpl.PrepareInvoiceOptions{
+					IssueDate: params.IssueDate,
+				}, inv)
+				if err != nil {
+					return errors.Join(ErrCannotAmendADraft, err)
+				}
 			}
 		} else {
 			// we want to generate an invoice based on a draft.
@@ -86,7 +93,7 @@ func (app *App) IssueInvoice(params IssueParams) error {
 	} else {
 		inv, err = template.PrepareInvoice(app.db, tmpl.PrepareInvoiceOptions{
 			IssueDate: params.IssueDate,
-		})
+		}, nil)
 		inv.Draft = !params.Commit
 
 		if err != nil {

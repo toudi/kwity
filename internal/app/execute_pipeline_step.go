@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/phuslu/log"
-	"github.com/toudi/kwity/internal"
 	"github.com/toudi/kwity/internal/invoice"
+	pipelinePkg "github.com/toudi/kwity/internal/pipeline"
 	tmpl "github.com/toudi/kwity/internal/template"
 )
 
@@ -46,12 +46,12 @@ func (app *App) executePipelineStep(step interface{}, template *tmpl.Template,
 		log.Trace().Err(err).Msg("plugin lookup")
 
 		if err == nil {
-			var pipeline internal.Pipeline
-			pipeline, ok := pipelineInstance.(internal.Pipeline)
+			var pipeline pipelinePkg.Pipeline
+			pipeline, ok := pipelineInstance.(pipelinePkg.Pipeline)
 			log.Trace().Bool("ok", ok).Msg("type cast")
 
 			if ok {
-				processErr := pipeline.Process(inv, stepMap, context)
+				processErr := pipeline.Process(app, inv, stepMap, context)
 				log.Trace().Err(processErr).Msg("process")
 
 				if processErr != nil {
